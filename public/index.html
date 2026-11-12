@@ -1,0 +1,1118 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1b4f94" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b1824" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Padel">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>Padelagenda</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap">
+<style>
+/* Layout: kalender als baanplan met krijtlijnen (1px raster), zijpaneel met de gekozen dag, upload en toevoegen bovenaan. */
+:root {
+  --bg: #e9eff3;
+  --surface: #fafcfc;
+  --surface-2: #f0f5f8;
+  --ink: #0e1d2b;
+  --muted: #566878;
+  --line: #cfd9e0;
+  --court: #1b4f94;
+  --on-court: #ffffff;
+  --ball: #d6e63b;
+  --on-ball: #1c2400;
+  --win: #1d7548;
+  --loss: #b0402d;
+  --cancel: #75848f;
+  --red: #c62828;
+  --on-red: #ffffff;
+  --font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1824; --surface: #12263a; --surface-2: #183049; --ink: #e7eff6; --muted: #92a6b7;
+    --line: #26405a; --court: #72a8ee; --on-court: #07203b; --ball: #d6e63b; --on-ball: #1c2400;
+    --win: #5ec794; --loss: #f19079; --cancel: #8b9ba8; --red: #ff6b61; --on-red: #2a0a08; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1824; --surface: #12263a; --surface-2: #183049; --ink: #e7eff6; --muted: #92a6b7;
+  --line: #26405a; --court: #72a8ee; --on-court: #07203b; --ball: #d6e63b; --on-ball: #1c2400;
+  --win: #5ec794; --loss: #f19079; --cancel: #8b9ba8; --red: #ff6b61; --on-red: #2a0a08; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.45;
+  padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 78rem; margin: 0 auto; display: grid; gap: 16px; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--court); outline-offset: 2px; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 700; margin: 0; letter-spacing: .01em; text-wrap: balance; }
+
+/* header */
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand svg { width: 64px; height: 32px; color: var(--court); flex: none; }
+.brand h1 { font-size: 2.1rem; line-height: 1; text-transform: uppercase; }
+.brand small { display: block; color: var(--muted); font-size: .8rem; margin-top: 4px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px;
+  border: 1px solid var(--line); background: var(--surface); border-radius: 6px; font-weight: 600;
+}
+.btn:hover { border-color: var(--court); }
+.btn.primary { background: var(--court); color: var(--on-court); border-color: var(--court); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.quiet { background: transparent; }
+.btn.danger { color: var(--loss); }
+.btn.small { min-height: 32px; padding: 0 10px; font-size: .85rem; }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+.icon { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; font-size: 1.2rem; line-height: 1; }
+.icon:hover { border-color: var(--court); }
+
+.demo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 14px; border: 1px dashed var(--court); border-radius: 6px; background: var(--surface); }
+.demo p { margin: 0; flex: 1 1 18rem; }
+
+/* main layout */
+.main { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 980px) { .main { grid-template-columns: minmax(0, 1fr) 23rem; } .side { position: sticky; top: 16px; } }
+.cal { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; min-width: 0; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px; border-bottom: 1px solid var(--line); }
+.bar h2 { font-size: 1.7rem; flex: 1 1 10rem; min-width: 0; }
+.nav { display: flex; gap: 6px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; background: transparent; min-height: 36px; padding: 0 14px; font-weight: 600; }
+.seg button[aria-pressed="true"] { background: var(--court); color: var(--on-court); }
+
+.pfilter { display: flex; gap: 6px; align-items: center; }
+#playerFilter { width: 13rem; max-width: 100%; min-height: 36px; padding: 4px 10px; }
+.mc .team { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; color: var(--court); }
+.grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--line); }
+.dow { background: var(--surface-2); padding: 6px 8px; font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+.cell {
+  background: var(--surface); border: 0; border-radius: 0; text-align: left; padding: 6px; min-height: 6.6rem; min-width: 0;
+  display: flex; flex-direction: column; gap: 3px; align-items: stretch;
+}
+.cell:hover { background: var(--surface-2); }
+.cell.other { background: var(--surface-2); color: var(--muted); }
+.cell.sel { outline: 2px solid var(--court); outline-offset: -2px; position: relative; z-index: 1; }
+.dn { align-self: flex-start; min-width: 1.7rem; height: 1.7rem; padding: 0 4px; display: inline-grid; place-items: center; font-weight: 600; font-variant-numeric: tabular-nums; border-radius: 50%; }
+.cell.today .dn { background: var(--ball); color: var(--on-ball); }
+.chip {
+  display: block; font-size: .74rem; line-height: 1.25; padding: 2px 5px; border-radius: 3px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--c) 16%, var(--surface)); color: var(--c);
+}
+.more { font-size: .72rem; color: var(--muted); padding-left: 5px; }
+.dots { display: none; gap: 3px; flex-wrap: wrap; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+@media (max-width: 640px) {
+  .cell { min-height: 3.6rem; padding: 4px; }
+  .chip, .more { display: none; }
+  .dots { display: flex; }
+  .dow { padding: 6px 2px; text-align: center; }
+}
+.s-gepland { --c: var(--court); }
+.s-gespeeld { --c: var(--muted); }
+.s-geannuleerd { --c: var(--cancel); }
+.chip.s-geannuleerd { text-decoration: line-through; }
+
+/* list view */
+.list { display: grid; }
+.lmonth { padding: 10px 14px 6px; font-size: 1.2rem; background: var(--surface-2); border-top: 1px solid var(--line); }
+.lmonth:first-child { border-top: 0; }
+.lrow { display: grid; grid-template-columns: 5.2rem minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; text-align: left; width: 100%; border: 0; border-top: 1px solid var(--line); background: var(--surface); padding: 10px 14px; }
+.lrow:hover { background: var(--surface-2); }
+.lrow.sel { box-shadow: inset 3px 0 0 var(--court); }
+.lrow .d { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; line-height: 1.1; }
+.lrow .d span { display: block; font-family: var(--font-body); font-weight: 500; font-size: .75rem; color: var(--muted); }
+.lrow .t { min-width: 0; }
+.lrow .t b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lrow .t span { color: var(--muted); font-size: .85rem; font-variant-numeric: tabular-nums; }
+.lrow.past { opacity: .8; }
+.empty { padding: 28px 16px; color: var(--muted); }
+
+/* speler gekozen: zijn matchen in het rood */
+.chip.hit { background: var(--red); color: var(--on-red); }
+.dot.hit { background: var(--red); }
+.lrow.hit { box-shadow: inset 4px 0 0 var(--red); }
+.lrow.hit .t b, .lrow.hit .d { color: var(--red); }
+.mc.hit { border-color: var(--red); box-shadow: inset 4px 0 0 var(--red); }
+.mc.hit .mc-time b { color: var(--red); }
+.up button.hit b, .up button.hit .d { color: var(--red); }
+.me-name { color: var(--red); font-weight: 700; }
+#playerFilter.on { border-color: var(--red); color: var(--red); }
+
+/* side panel */
+.side { display: grid; gap: 16px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px; display: grid; gap: 12px; min-width: 0; }
+.panel h2 { font-size: 1.5rem; }
+.panel h3 { font-size: 1.05rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.mc { display: grid; grid-template-columns: 3.6rem minmax(0, 1fr); gap: 4px 12px; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); }
+.mc-time b { display: block; font-family: var(--font-display); font-size: 1.35rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.mc-time span { font-size: .72rem; color: var(--muted); }
+.mc-body { min-width: 0; display: grid; gap: 3px; }
+.mc-body h3 { font-size: 1.15rem; text-transform: none; letter-spacing: 0; color: var(--ink); overflow-wrap: anywhere; }
+.mc-body p { margin: 0; overflow-wrap: anywhere; }
+.mc .meta { color: var(--muted); font-size: .88rem; }
+.mc .notes { font-size: .88rem; color: var(--muted); font-style: italic; }
+.pill { display: inline-block; font-size: .72rem; font-weight: 600; padding: 1px 8px; border-radius: 99px; text-transform: uppercase; letter-spacing: .05em; background: color-mix(in srgb, var(--c) 16%, var(--surface)); color: var(--c); margin-left: 6px; vertical-align: 2px; }
+.mc-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.confirm { font-size: .88rem; font-weight: 600; margin-right: 4px; }
+.up { display: grid; gap: 0; }
+.up button { display: grid; grid-template-columns: 4.6rem minmax(0, 1fr); gap: 8px; text-align: left; border: 0; border-top: 1px solid var(--line); background: transparent; padding: 8px 0; }
+.up button:first-child { border-top: 0; }
+.up button:hover b { color: var(--court); }
+.up .d { font-weight: 600; font-size: .85rem; }
+.up .d span { display: block; color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+.up b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.muted { color: var(--muted); }
+.status { font-size: .8rem; color: var(--muted); }
+
+/* dialogs */
+dialog { background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 0; width: min(36rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); overflow: auto; }
+dialog.wide { width: min(50rem, calc(100vw - 2rem)); }
+dialog::backdrop { background: rgba(5, 15, 25, .55); }
+.dlg-h { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.dlg-h h2 { font-size: 1.5rem; }
+.dlg-b { padding: 16px; display: grid; gap: 12px; }
+.dlg-f { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--surface-2); }
+.fgrid { grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); }
+.fgrid .span { grid-column: 1 / -1; }
+label { display: grid; gap: 4px; font-size: .8rem; font-weight: 600; color: var(--muted); min-width: 0; }
+input, select, textarea { width: 100%; min-height: 40px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font-size: 1rem; font-weight: 400; }
+textarea { resize: vertical; }
+input[type=file] { display: none; }
+.err { margin: 0; color: var(--loss); font-weight: 600; }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; max-height: 50dvh; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; font-variant-numeric: tabular-nums; }
+th { position: sticky; top: 0; background: var(--surface-2); font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+td.ok { color: var(--win); font-weight: 600; }
+td.dup { color: var(--muted); }
+td.bad { color: var(--loss); font-weight: 600; white-space: normal; min-width: 12rem; }
+td.names { max-width: 18rem; overflow: hidden; text-overflow: ellipsis; }
+.hint { margin: 0; color: var(--muted); font-size: .88rem; }
+.hint code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .85em; background: var(--surface-2); padding: 1px 5px; border-radius: 3px; }
+.sum { display: flex; flex-wrap: wrap; gap: 6px 16px; font-weight: 600; }
+
+#toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 6px; font-weight: 600; z-index: 50; max-width: calc(100vw - 32px); }
+#drop { position: fixed; inset: 0; z-index: 40; display: none; place-items: center; background: color-mix(in srgb, var(--court) 78%, transparent); color: var(--on-court); font-family: var(--font-display); font-weight: 700; font-size: 2rem; text-transform: uppercase; letter-spacing: .04em; text-align: center; padding: 24px; }
+#drop.on { display: grid; }
+@media (prefers-reduced-motion: no-preference) { .btn, .cell, .lrow { transition: background-color .12s, border-color .12s; } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 100 50" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+        <rect x="2" y="2" width="96" height="46"></rect>
+        <line x1="50" y1="2" x2="50" y2="48"></line>
+        <line x1="16.6" y1="2" x2="16.6" y2="48"></line>
+        <line x1="83.4" y1="2" x2="83.4" y2="48"></line>
+        <line x1="16.6" y1="25" x2="83.4" y2="25"></line>
+      </svg>
+      <div>
+        <h1>Padelagenda</h1>
+        <small id="status" class="status">Verbinden…</small>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" data-act="add" type="button">+ Match toevoegen</button>
+      <button class="btn" data-act="upload" type="button">Matchen uploaden</button>
+      <button class="btn quiet" data-act="install" type="button" id="btnInstall" hidden>Installeer app</button>
+      <input id="fileInput" type="file" accept=".csv,.tsv,.txt,.json,.ics,.xlsx,.xls">
+    </div>
+  </header>
+
+  <div class="demo" id="demoBar" hidden>
+    <p><b>Dit zijn voorbeeldmatchen.</b> Voeg een match toe of upload een bestand. Zodra je de eerste match bewaart, verdwijnen de voorbeelden.</p>
+    <button class="btn small" data-act="upload" type="button">Bestand kiezen</button>
+  </div>
+
+  <div class="main">
+    <section class="cal" aria-label="Kalender">
+      <div class="bar">
+        <h2 id="mTitle"></h2>
+        <div class="nav">
+          <button class="icon" data-act="prev" type="button" aria-label="Vorige maand">‹</button>
+          <button class="btn small" data-act="today" type="button">Vandaag</button>
+          <button class="icon" data-act="next" type="button" aria-label="Volgende maand">›</button>
+        </div>
+        <div class="seg" role="group" aria-label="Weergave">
+          <button type="button" data-act="view-month" id="vMonth" aria-pressed="true">Maand</button>
+          <button type="button" data-act="view-list" id="vList" aria-pressed="false">Lijst</button>
+        </div>
+        <div class="pfilter" id="pfilter" hidden>
+          <input id="playerFilter" type="text" list="playerList" placeholder="Speler kiezen of typen" aria-label="Speler" autocomplete="off">
+          <button class="icon" id="clearPlayer" data-act="clear-player" type="button" aria-label="Speler wissen" hidden>×</button>
+          <datalist id="playerList"></datalist>
+        </div>
+      </div>
+      <div id="calBody"></div>
+    </section>
+
+    <aside class="side">
+      <section class="panel" id="dayPanel" aria-live="polite"></section>
+      <section class="panel" id="upPanel"></section>
+    </aside>
+  </div>
+</div>
+
+<dialog id="matchDlg">
+  <form id="matchForm" novalidate>
+    <div class="dlg-h"><h2 id="mfTitle">Match toevoegen</h2><button type="button" class="icon" data-close aria-label="Sluiten">×</button></div>
+    <div class="dlg-b fgrid">
+      <label>Datum<input id="f-date" type="date" required></label>
+      <label>Starttijd<input id="f-time" type="time"></label>
+      <label>Duur (minuten)<input id="f-duration" type="number" min="15" max="480" step="15"></label>
+      <label class="span">Omschrijving<input id="f-title" type="text" placeholder="Bv. Competitie speeldag 4" autocomplete="off"></label>
+      <label>Club of locatie<input id="f-club" type="text" list="clubList" autocomplete="off"></label>
+      <label>Baan<input id="f-court" type="text" placeholder="Bv. 3" autocomplete="off"></label>
+      <label>Type<input id="f-type" type="text" list="typeList" autocomplete="off"></label>
+      <label>Team<input id="f-team" type="text" list="teamList" placeholder="Bv. Team 1" autocomplete="off"></label>
+      <label>Status<select id="f-status"></select></label>
+      <label class="span">Spelers (eerste = reservatie)<input id="f-players" type="text" placeholder="Naam 1 - Naam 2 - Naam 3 - Naam 4" autocomplete="off"></label>
+      <label>Partner<input id="f-partner" type="text" autocomplete="off"></label>
+      <label>Tegenstanders<input id="f-opponents" type="text" autocomplete="off"></label>
+      <label class="span">Notities<textarea id="f-notes" rows="3"></textarea></label>
+      <p class="err span" id="mfErr" hidden></p>
+    </div>
+    <div class="dlg-f">
+      <button type="button" class="btn" data-close>Annuleren</button>
+      <button type="submit" class="btn primary">Opslaan</button>
+    </div>
+  </form>
+  <datalist id="clubList"></datalist>
+  <datalist id="typeList"></datalist>
+  <datalist id="teamList"></datalist>
+</dialog>
+
+<dialog id="importDlg" class="wide">
+  <div class="dlg-h"><h2>Matchen importeren</h2><button type="button" class="icon" data-close aria-label="Sluiten">×</button></div>
+  <div class="dlg-b fgrid" id="importOpts" style="padding-bottom:0">
+    <label>Standaard starttijd<input id="impTime" type="time"></label>
+    <label>Standaard club of locatie<input id="impClub" type="text" autocomplete="off"></label>
+    <p class="hint span">Wordt alleen ingevuld bij rijen waar die kolom ontbreekt of leeg is.</p>
+  </div>
+  <div class="dlg-b" id="importBody"></div>
+  <div class="dlg-f">
+    <button type="button" class="btn" data-close>Annuleren</button>
+    <button type="button" class="btn primary" id="importGo" data-act="import-go">Importeren</button>
+  </div>
+</dialog>
+
+<dialog id="codeDlg">
+  <form id="codeForm" novalidate>
+    <div class="dlg-h"><h2>Bewerkcode</h2><button type="button" class="icon" data-close aria-label="Sluiten">×</button></div>
+    <div class="dlg-b">
+      <p class="hint">Om matchen te wijzigen heb je de bewerkcode nodig. Vraag die aan de beheerder van de agenda.</p>
+      <label>Code<input id="codeInput" type="password" autocomplete="off"></label>
+      <p class="err" id="codeErr" hidden>Die code klopt niet. Probeer opnieuw.</p>
+    </div>
+    <div class="dlg-f">
+      <button type="button" class="btn" data-close>Annuleren</button>
+      <button type="submit" class="btn primary">Bevestigen</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="drop" aria-hidden="true">Laat het bestand los om matchen te uploaden</div>
+<div id="toast" role="status" hidden></div>
+
+<script>
+(function () {
+  'use strict';
+  var NL = 'nl-BE';
+  var $ = function (s) { return document.querySelector(s); };
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+  var cap = function (s) { return s.charAt(0).toUpperCase() + s.slice(1); };
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  };
+
+  /* ---------- datums ---------- */
+  function ymd(y, m, d) { return y + '-' + pad(m + 1) + '-' + pad(d); }
+  function fromStr(s) { var p = s.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+  function toStr(dt) { return ymd(dt.getFullYear(), dt.getMonth(), dt.getDate()); }
+  function today() { return toStr(new Date()); }
+  function nowTime() { var n = new Date(); return pad(n.getHours()) + ':' + pad(n.getMinutes()); }
+  function fmtLong(s) { return cap(fromStr(s).toLocaleDateString(NL, { weekday: 'long', day: 'numeric', month: 'long' })); }
+  function fmtShort(s) { return fromStr(s).toLocaleDateString(NL, { weekday: 'short', day: 'numeric', month: 'short' }); }
+  function fmtMonth(y, m) { return cap(new Date(y, m, 1).toLocaleDateString(NL, { month: 'long', year: 'numeric' })); }
+  function addDays(s, n) { var d = fromStr(s); d.setDate(d.getDate() + n); return toStr(d); }
+  function endTime(t, dur) {
+    if (!t) return '';
+    var p = t.split(':').map(Number), tot = p[0] * 60 + p[1] + (Number(dur) || 90);
+    return pad(Math.floor(tot / 60) % 24) + ':' + pad(tot % 60);
+  }
+
+  /* ---------- model ---------- */
+  var STATUS = { gepland: 'Gepland', gespeeld: 'Gespeeld', geannuleerd: 'Geannuleerd' };
+  var TYPES = ['Vriendschappelijk', 'Competitie', 'Toernooi', 'Training', 'Americano'];
+  var state = {
+    matches: [], ready: false, mode: 'pending', view: 'month',
+    ym: { y: new Date().getFullYear(), m: new Date().getMonth() },
+    selected: today(), player: '', confirmDel: null, refocus: null, imp: null, slow: false, dbError: null
+  };
+
+  function demos() {
+    var t = today();
+    function mk(i, off, time, o) {
+      return Object.assign({ id: 'demo-' + i, date: addDays(t, off), time: time, duration: 90, title: '', club: 'Padelclub (voorbeeld)', team: '', players: '', court: '', type: 'Vriendschappelijk', partner: '', opponents: '', status: 'gepland', notes: '' }, o);
+    }
+    return [
+      mk(1, -12, '20:00', { court: '2', partner: 'Voorbeeld A', opponents: 'Voorbeeld B & C', status: 'gespeeld' }),
+      mk(2, -8, '19:30', { court: '4', type: 'Competitie', title: 'Competitie speeldag 3', status: 'gespeeld' }),
+      mk(3, -4, '21:00', { court: '1', status: 'gespeeld' }),
+      mk(4, 2, '20:00', { court: '3', team: 'Team 1', players: 'Voorbeeld A - Voorbeeld B - Voorbeeld C - Voorbeeld D' }),
+      mk(7, 2, '20:00', { court: '4', team: 'Team 2', players: 'Voorbeeld E - Voorbeeld F - Voorbeeld G - Voorbeeld H' }),
+      mk(5, 5, '19:00', { type: 'Competitie', title: 'Competitie speeldag 4', court: '5', team: 'Team 1' }),
+      mk(6, 11, '10:00', { type: 'Toernooi', title: 'Zondagstoernooi', duration: 120 })
+    ];
+  }
+  function demoMode() { return state.ready && !state.dbError && state.matches.length === 0; }
+  function src0() { return state.matches.length ? state.matches : (demoMode() ? demos() : []); }
+  function all() {
+    var list = src0();
+    return list.map(function (x) { return (x.status === 'gewonnen' || x.status === 'verloren') ? Object.assign({}, x, { status: 'gespeeld' }) : x; }).sort(function (a, b) {
+      return (a.date + (a.time || '00:00')).localeCompare(b.date + (b.time || '00:00'));
+    });
+  }
+  function on(date) { return all().filter(function (m) { return m.date === date; }); }
+  function label(m) { return m.club || m.title || m.type || 'Padel'; }
+  function title(m) { return m.title || m.type || 'Padelmatch'; }
+  function playerList(s) {
+    return String(s || '').split(/\s+[-–—]\s+|\s*[;\/|\n]\s*/).map(function (n) { return n.trim(); }).filter(Boolean);
+  }
+  function teamList() {
+    var src = src0(), seen = {};
+    src.forEach(function (x) { if (x.team) seen[x.team] = 1; });
+    return Object.keys(seen).sort();
+  }
+  var known = {}, playerSig = null;
+  function namesOf(x) {
+    var a = playerList(x.players).map(function (n) { return n.replace(/\s*\([^)]*\)\s*/g, ' ').trim(); }).filter(Boolean);
+    if (x.partner) a.push(String(x.partner).trim());
+    return a;
+  }
+  function renderPlayers() {
+    var src = src0(), seen = {};
+    src.forEach(function (x) { namesOf(x).forEach(function (n) { seen[n] = 1; }); });
+    var list = Object.keys(seen).sort(function (a, b) { return a.localeCompare(b, NL); });
+    known = {};
+    list.forEach(function (n) { known[normKey(n)] = 1; });
+    var sig = list.join('|');
+    if (sig !== playerSig) {
+      playerSig = sig;
+      $('#playerList').innerHTML = list.map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
+    }
+    $('#pfilter').hidden = list.length < 1;
+    $('#clearPlayer').hidden = !state.player;
+    $('#playerFilter').classList.toggle('on', !!state.player);
+  }
+  function nameHit(n) {
+    var q = normKey(state.player);
+    if (!q) return false;
+    var k = normKey(String(n).replace(/\s*\([^)]*\)\s*/g, ' '));
+    if (k === q) return true;
+    if (known[q]) return false;
+    return k.indexOf(q) >= 0;
+  }
+  function nm(n) { var t = esc(n); return nameHit(n) ? '<span class="me-name">' + t + '</span>' : t; }
+  function nmList(s) {
+    return String(s).split(/(\s*(?:&|\/|;|,)\s*|\s+-\s+|\s+en\s+)/).map(function (p, i) { return i % 2 ? esc(p) : nm(p); }).join('');
+  }
+  function isHit(x) {
+    var q = normKey(state.player);
+    if (!q) return false;
+    var names = namesOf(x).map(normKey);
+    if (names.indexOf(q) >= 0) return true;
+    if (known[q]) return false;
+    return names.some(function (n) { return n.indexOf(q) >= 0; });
+  }
+
+  /* ---------- opslag: gedeelde server ---------- */
+  var CACHE_KEY = 'padelagenda.cache.v1', CODE_KEY = 'padelagenda.code', PLAYER_KEY = 'padelagenda.speler';
+  var store = { rev: -1, code: '', inflight: null };
+  try { store.code = localStorage.getItem(CODE_KEY) || ''; } catch (e) {}
+
+  function newId() { return 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function clean(m) {
+    var o = {};
+    Object.keys(m).forEach(function (k) { if (k !== 'id') o[k] = m[k]; });
+    return o;
+  }
+  function api(method, path, body) {
+    var opts = { method: method, headers: {}, cache: 'no-store' };
+    if (store.code) opts.headers['x-edit-code'] = store.code;
+    if (body !== undefined) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+    return fetch(path, opts).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (r.ok) return j;
+        throw { code: r.status === 401 ? 'locked' : r.status === 429 ? 'blocked' : r.status === 507 ? 'quota_exceeded' : r.status === 400 ? 'invalid_argument' : 'server', status: r.status };
+      });
+    }, function () { throw { code: 'offline' }; });
+  }
+  function saveCache() {
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ rev: store.rev, matches: state.matches })); } catch (e) {}
+  }
+  function loadCache() {
+    try {
+      var c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+      if (c && Array.isArray(c.matches)) { state.matches = c.matches; store.rev = typeof c.rev === 'number' ? c.rev : -1; return true; }
+    } catch (e) {}
+    return false;
+  }
+  function refresh(force) {
+    if (store.inflight) return force ? store.inflight.then(function () { return refresh(true); }) : store.inflight;
+    var wasBad = !!state.dbError || !state.ready;
+    store.inflight = api('GET', '/api/matches' + (!force && store.rev >= 0 ? '?rev=' + store.rev : '')).then(function (j) {
+      store.rev = j.rev;
+      var changed = !j.unchanged;
+      if (changed) { state.matches = j.matches; saveCache(); }
+      state.dbError = null; state.ready = true;
+      if (changed || wasBad) render();
+    }).catch(function (e) {
+      state.ready = true; state.dbError = (e && e.code) || 'offline';
+      if (!wasBad) render();
+    }).then(function () { store.inflight = null; });
+    return store.inflight;
+  }
+
+  /* bewerkcode */
+  var codeAsk = null;
+  function askCode(wrong) {
+    return new Promise(function (resolve, reject) {
+      codeAsk = { resolve: resolve, reject: reject };
+      $('#codeErr').hidden = !wrong; $('#codeInput').value = '';
+      $('#codeDlg').showModal(); $('#codeInput').focus();
+    });
+  }
+  function withCode(fn) {
+    return fn().catch(function (e) {
+      if (!e || e.code !== 'locked') throw e;
+      return askCode(!!store.code).then(function (c) {
+        store.code = c;
+        try { localStorage.setItem(CODE_KEY, c); } catch (x) {}
+        return withCode(fn);
+      });
+    });
+  }
+  function saveMatch(id, m) {
+    return withCode(function () { return api('PUT', '/api/matches/' + encodeURIComponent(id), clean(m)); }).then(function () { return refresh(true); });
+  }
+  function saveMany(list) {
+    var chunks = [], i;
+    for (i = 0; i < list.length; i += 100) chunks.push(list.slice(i, i + 100));
+    return chunks.reduce(function (p, ch) {
+      return p.then(function () { return withCode(function () { return api('POST', '/api/batch', { matches: ch }); }); });
+    }, Promise.resolve()).then(function () { return refresh(true); });
+  }
+  function removeMatch(id) {
+    return withCode(function () { return api('DELETE', '/api/matches/' + encodeURIComponent(id)); }).then(function () { return refresh(true); });
+  }
+  function writeError(e) {
+    var code = e && e.code;
+    if (code === 'cancelled') { toast('Niet bewaard: de bewerkcode is nodig.'); return; }
+    toast(code === 'offline' ? 'Geen verbinding met de server. Probeer opnieuw.' :
+      code === 'blocked' ? 'Te veel foute codes. Probeer later opnieuw.' :
+      code === 'quota_exceeded' ? 'Opslag is vol. Verwijder oude matchen.' :
+      code === 'invalid_argument' ? 'Deze match is niet geldig. Controleer de velden.' :
+      'Opslaan niet gelukt. Probeer opnieuw.');
+  }
+
+  function init() {
+    state.mode = 'api';
+    try { state.player = localStorage.getItem(PLAYER_KEY) || ''; $('#playerFilter').value = state.player; } catch (e) {}
+    if (loadCache()) state.ready = true;
+    render();
+    refresh(false);
+    setInterval(function () { if (!document.hidden) refresh(false); }, 20000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(false); });
+    window.addEventListener('online', function () { refresh(true); });
+    if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+      window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+    }
+  }
+
+  /* installeren als app */
+  var installEvt = null;
+  var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  function showInstall() { $('#btnInstall').hidden = standalone || !(installEvt || isIOS); }
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); installEvt = e; showInstall(); });
+  window.addEventListener('appinstalled', function () { installEvt = null; standalone = true; showInstall(); });
+  function installApp() {
+    if (installEvt) {
+      installEvt.prompt();
+      installEvt.userChoice.then(function () {}, function () {}).then(function () { installEvt = null; showInstall(); });
+    } else {
+      toast('Tik op Deel en kies "Zet op beginscherm".');
+    }
+  }
+  showInstall();
+
+  /* ---------- toast ---------- */
+  var toastTimer;
+  function toast(msg) {
+    var t = $('#toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, 4200);
+  }
+
+  /* ---------- render ---------- */
+  function renderStatus() {
+    var s = $('#status'), txt;
+    if (state.mode === 'pending') txt = 'Verbinden…';
+    else if (!state.ready) txt = 'Matchen laden…';
+    else if (state.dbError) txt = state.matches.length ? 'Geen verbinding, laatst bekende matchen' : 'Geen verbinding met de server';
+    else txt = state.matches.length ? 'Gedeelde agenda' : 'Nog geen matchen in de agenda';
+    s.textContent = txt;
+  }
+
+  function renderCalendar() {
+    var y = state.ym.y, m = state.ym.m, list = all(), by = {};
+    list.forEach(function (x) { (by[x.date] = by[x.date] || []).push(x); });
+    var first = new Date(y, m, 1), off = (first.getDay() + 6) % 7, dim = new Date(y, m + 1, 0).getDate();
+    var rows = Math.ceil((off + dim) / 7), t = today(), h = '';
+    ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'].forEach(function (d) { h += '<div class="dow">' + d + '</div>'; });
+    for (var i = 0; i < rows * 7; i++) {
+      var dayNum = i - off + 1, dt = new Date(y, m, dayNum), ds = toStr(dt), items = by[ds] || [];
+      var cls = 'cell' + (dayNum < 1 || dayNum > dim ? ' other' : '') + (ds === t ? ' today' : '') + (ds === state.selected ? ' sel' : '');
+      var aria = dt.toLocaleDateString(NL, { day: 'numeric', month: 'long' }) + ', ' + (items.length ? items.length + (items.length === 1 ? ' match' : ' matchen') : 'geen matchen');
+      h += '<button type="button" class="' + cls + '" data-act="select" data-date="' + ds + '" aria-label="' + esc(aria) + '"' + (ds === state.selected ? ' aria-current="date"' : '') + '>';
+      h += '<span class="dn">' + dt.getDate() + '</span>';
+      items.slice(0, 3).forEach(function (x) {
+        h += '<span class="chip s-' + x.status + (isHit(x) ? ' hit' : '') + '">' + esc((x.time ? x.time + ' ' : '') + (x.team ? x.team + ' · ' : '') + label(x)) + '</span>';
+      });
+      if (items.length > 3) h += '<span class="more">+' + (items.length - 3) + ' meer</span>';
+      if (items.length) {
+        h += '<span class="dots">';
+        items.slice(0, 4).forEach(function (x) { h += '<span class="dot s-' + x.status + (isHit(x) ? ' hit' : '') + '"></span>'; });
+        h += '</span>';
+      }
+      h += '</button>';
+    }
+    $('#calBody').innerHTML = '<div class="grid">' + h + '</div>';
+  }
+
+  function renderList() {
+    var list = all(), t = today(), h = '', cur = '';
+    if (!list.length) { $('#calBody').innerHTML = '<p class="empty">Nog geen matchen. Voeg er een toe of upload een bestand.</p>'; return; }
+    list.forEach(function (x) {
+      var mk = x.date.slice(0, 7);
+      if (mk !== cur) { cur = mk; var p = mk.split('-'); h += '<h3 class="lmonth">' + esc(fmtMonth(Number(p[0]), Number(p[1]) - 1)) + '</h3>'; }
+      var d = fromStr(x.date);
+      h += '<button type="button" class="lrow s-' + x.status + (isHit(x) ? ' hit' : '') + (x.date < t ? ' past' : '') + (x.date === state.selected ? ' sel' : '') + '" data-act="select" data-date="' + x.date + '">' +
+        '<div class="d">' + d.getDate() + ' ' + esc(d.toLocaleDateString(NL, { month: 'short' })) + '<span>' + esc(d.toLocaleDateString(NL, { weekday: 'long' })) + '</span></div>' +
+        '<div class="t"><b>' + esc(title(x)) + '</b><span>' + esc([x.time ? x.time + '–' + endTime(x.time, x.duration) : '', x.team, x.club, x.court ? 'baan ' + x.court : ''].filter(Boolean).join(' · ')) + '</span></div>' +
+        '<span class="pill">' + esc(STATUS[x.status] || x.status) + '</span></button>';
+    });
+    $('#calBody').innerHTML = '<div class="list">' + h + '</div>';
+  }
+
+  function matchCard(x) {
+    var demo = String(x.id).indexOf('demo-') === 0;
+    var h = '<article class="mc s-' + x.status + (isHit(x) ? ' hit' : '') + '">' +
+      '<div class="mc-time"><b>' + esc(x.time || '—') + '</b><span>' + esc((x.duration || 90) + ' min') + '</span></div>' +
+      '<div class="mc-body">' + (x.team ? '<p class="team">' + esc(x.team) + '</p>' : '') + '<h3>' + esc(title(x)) + '<span class="pill">' + esc(STATUS[x.status] || x.status) + '</span></h3>';
+    var meta = [x.club, x.court ? 'baan ' + x.court : '', x.type && x.title ? x.type : ''].filter(Boolean).join(' · ');
+    if (meta) h += '<p class="meta">' + esc(meta) + '</p>';
+    var pl = playerList(x.players);
+    if (pl.length) h += '<p>' + pl.map(function (n, i) { return i === 0 ? '<b>' + nm(n) + '</b> <span class="muted">(reservatie)</span>' : nm(n); }).join(' · ') + '</p>';
+    if (x.partner || x.opponents) h += '<p>' + nmList(x.partner || '?') + ' <span class="muted">tegen</span> ' + nmList(x.opponents || '?') + '</p>';
+    if (x.notes) h += '<p class="notes">' + esc(x.notes) + '</p>';
+    h += '</div>';
+    if (!demo) {
+      h += '<div class="mc-actions">';
+      if (state.confirmDel === x.id) {
+        h += '<span class="confirm">Zeker verwijderen?</span><button class="btn small danger" type="button" data-act="del-yes" data-id="' + esc(x.id) + '">Ja, verwijder</button><button class="btn small" type="button" data-act="del-no">Nee</button>';
+      } else {
+        h += '<button class="btn small" type="button" data-act="edit" data-id="' + esc(x.id) + '">Bewerk</button><button class="btn small quiet danger" type="button" data-act="del" data-id="' + esc(x.id) + '">Verwijder</button>';
+      }
+      h += '</div>';
+    }
+    return h + '</article>';
+  }
+
+  function renderPanel() {
+    var items = on(state.selected);
+    var h = '<h2>' + esc(fmtLong(state.selected)) + '</h2>';
+    if (items.length) h += items.map(matchCard).join('');
+    else h += '<p class="muted" style="margin:0">Geen matchen op deze dag.</p>';
+    h += '<button class="btn primary" type="button" data-act="add" data-date="' + state.selected + '">+ Match op ' + esc(fromStr(state.selected).toLocaleDateString(NL, { day: 'numeric', month: 'long' })) + '</button>';
+    $('#dayPanel').innerHTML = h;
+
+    var t = today(), nt = nowTime();
+    var up = all().filter(function (x) { return x.status === 'gepland' && (x.date > t || (x.date === t && (x.time || '00:00') >= nt)); }).slice(0, 5);
+    var u = '<h3>Komende matchen</h3>';
+    if (!up.length) u += '<p class="muted" style="margin:0">Geen geplande matchen.</p>';
+    else u += '<div class="up">' + up.map(function (x) {
+      return '<button type="button"' + (isHit(x) ? ' class="hit"' : '') + ' data-act="select" data-date="' + x.date + '"><div class="d">' + esc(fmtShort(x.date)) + '<span>' + esc(x.time || '') + '</span></div><b>' + esc((x.team ? x.team + ' · ' : '') + label(x)) + '</b></button>';
+    }).join('') + '</div>';
+    $('#upPanel').innerHTML = u;
+  }
+
+  function render() {
+    renderStatus();
+    $('#mTitle').textContent = fmtMonth(state.ym.y, state.ym.m);
+    $('#vMonth').setAttribute('aria-pressed', String(state.view === 'month'));
+    $('#vList').setAttribute('aria-pressed', String(state.view === 'list'));
+    $('.nav').style.display = state.view === 'month' ? '' : 'none';
+    $('#demoBar').hidden = !demoMode();
+    renderPlayers();
+    if (state.view === 'month') renderCalendar(); else renderList();
+    renderPanel();
+    if (state.refocus) {
+      var el = document.querySelector('[data-date="' + state.refocus + '"].cell, [data-date="' + state.refocus + '"].lrow');
+      if (el) el.focus();
+      state.refocus = null;
+    }
+  }
+
+  /* ---------- formulier ---------- */
+  function fillStatusOptions() {
+    $('#f-status').innerHTML = Object.keys(STATUS).map(function (k) { return '<option value="' + k + '">' + STATUS[k] + '</option>'; }).join('');
+    $('#typeList').innerHTML = TYPES.map(function (t) { return '<option value="' + esc(t) + '">'; }).join('');
+  }
+  function openForm(id, date) {
+    var m = id ? state.matches.filter(function (x) { return x.id === id; })[0] : null;
+    var clubs = {};
+    state.matches.forEach(function (x) { if (x.club) clubs[x.club] = 1; });
+    $('#clubList').innerHTML = Object.keys(clubs).map(function (c) { return '<option value="' + esc(c) + '">'; }).join('');
+    $('#teamList').innerHTML = teamList().map(function (t) { return '<option value="' + esc(t) + '">'; }).join('');
+    $('#mfTitle').textContent = m ? 'Match bewerken' : 'Match toevoegen';
+    $('#matchForm').dataset.id = m ? m.id : '';
+    var d = m || { date: date || state.selected, time: '20:00', duration: 90, title: '', team: '', club: '', court: '', type: '', players: '', partner: '', opponents: '', status: (date || state.selected) < today() ? 'gespeeld' : 'gepland', notes: '' };
+    ['date', 'time', 'duration', 'title', 'team', 'club', 'court', 'type', 'players', 'partner', 'opponents', 'status', 'notes'].forEach(function (k) {
+      $('#f-' + k).value = d[k] == null ? '' : d[k];
+    });
+    $('#mfErr').hidden = true;
+    $('#matchDlg').showModal();
+    $('#f-' + (m ? 'club' : 'time')).focus();
+  }
+  function goTo(date) {
+    var d = fromStr(date);
+    state.selected = date; state.ym = { y: d.getFullYear(), m: d.getMonth() }; state.confirmDel = null;
+  }
+  function submitForm(e) {
+    e.preventDefault();
+    var g = function (k) { return $('#f-' + k).value.trim(); };
+    var date = g('date');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { var er = $('#mfErr'); er.textContent = 'Kies een datum.'; er.hidden = false; $('#f-date').focus(); return; }
+    var id = $('#matchForm').dataset.id || newId();
+    var dur = parseInt(g('duration'), 10);
+    var m = {
+      date: date, time: g('time'), duration: isNaN(dur) ? 90 : Math.min(480, Math.max(15, dur)),
+      title: g('title'), team: g('team'), club: g('club'), court: g('court'), type: g('type'), players: g('players'), partner: g('partner'),
+      opponents: g('opponents'), status: $('#f-status').value, notes: g('notes')
+    };
+    saveMatch(id, m).then(function () {
+      $('#matchDlg').close(); goTo(date); state.refocus = date; render(); toast('Match bewaard');
+    }).catch(writeError);
+  }
+
+  /* ---------- import ---------- */
+  var SYN = {
+    date: ['datum', 'date', 'startdate', 'startdatum', 'begindatum', 'start'],
+    time: ['tijd', 'uur', 'time', 'starttijd', 'starttime', 'aanvang', 'begin'],
+    duration: ['duur', 'duration', 'minuten', 'minutes', 'min'],
+    title: ['titel', 'title', 'omschrijving', 'summary', 'onderwerp', 'naam', 'name', 'event'],
+    club: ['club', 'locatie', 'location', 'plaats', 'centrum', 'padelclub', 'venue'],
+    court: ['baan', 'court', 'terrein', 'veld'],
+    team: ['team', 'ploeg', 'equipe', 'teamnaam'],
+    weekday: ['dag', 'day', 'weekdag'],
+    players: ['spelers', 'speler', 'players', 'deelnemers'],
+    type: ['type', 'soort', 'categorie', 'category'],
+    partner: ['partner', 'teamgenoot', 'medespeler'],
+    opponents: ['tegenstanders', 'tegenstander', 'opponents', 'opponent', 'tegen'],
+    status: ['status', 'resultaat', 'result', 'uitkomst'],
+    notes: ['notities', 'notitie', 'notes', 'note', 'opmerking', 'opmerkingen', 'beschrijving', 'description']
+  };
+  var SYNMAP = {};
+  Object.keys(SYN).forEach(function (f) { SYN[f].forEach(function (k) { SYNMAP[k] = f; }); });
+  var DEFAULT_ORDER = ['date', 'time', 'club', 'court', 'type', 'partner', 'opponents', 'status', 'notes'];
+  var SYNKEYS = Object.keys(SYNMAP).sort(function (a, b) { return b.length - a.length; });
+  function fieldFor(k) {
+    var n = normKey(k);
+    if (!n) return null;
+    if (SYNMAP[n]) return SYNMAP[n];
+    for (var i = 0; i < SYNKEYS.length; i++) if (SYNKEYS[i].length >= 4 && n.indexOf(SYNKEYS[i]) === 0) return SYNMAP[SYNKEYS[i]];
+    return null;
+  }
+  function normKey(k) { return String(k).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, ''); }
+
+  function parseCSV(text) {
+    text = text.replace(/^﻿/, '');
+    var firstLine = (text.split(/\r?\n/).filter(function (l) { return l.trim(); })[0]) || '';
+    var counts = { ';': 0, ',': 0, '\t': 0 }, q = false, i;
+    for (i = 0; i < firstLine.length; i++) {
+      var ch = firstLine[i];
+      if (ch === '"') q = !q; else if (!q && counts.hasOwnProperty(ch)) counts[ch]++;
+    }
+    var delim = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; })[0];
+    var rows = [], row = [], cell = '';
+    q = false;
+    for (i = 0; i < text.length; i++) {
+      var c = text[i];
+      if (q) {
+        if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+        else cell += c;
+      } else if (c === '"') q = true;
+      else if (c === delim) { row.push(cell); cell = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i + 1] === '\n') i++;
+        row.push(cell); cell = ''; rows.push(row); row = [];
+      } else cell += c;
+    }
+    if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+    return rows;
+  }
+  function rowsFromTable(table) {
+    table = table.filter(function (r) { return r.some(function (c) { return String(c).trim() !== ''; }); });
+    if (!table.length) return [];
+    var head = table[0].map(function (h) { return fieldFor(h); });
+    var hasHead = head.indexOf('date') >= 0;
+    var fields = hasHead ? head : DEFAULT_ORDER, body = hasHead ? table.slice(1) : table;
+    return body.map(function (r, i) {
+      var o = { _line: i + (hasHead ? 2 : 1) };
+      fields.forEach(function (f, j) { if (f && r[j] !== undefined && o[f] === undefined) o[f] = String(r[j]).trim(); });
+      return o;
+    });
+  }
+  function rowsFromJSON(text) {
+    var data = JSON.parse(text.replace(/^﻿/, ''));
+    if (!Array.isArray(data)) data = data.matches || data.matchen || data.events || [];
+    return data.map(function (obj, i) {
+      var o = { _line: i + 1 };
+      Object.keys(obj || {}).forEach(function (k) {
+        var f = fieldFor(k);
+        if (f && o[f] === undefined) o[f] = String(obj[k] == null ? '' : obj[k]).trim();
+      });
+      return o;
+    });
+  }
+  function rowsFromICS(text) {
+    var lines = text.replace(/\r?\n[ \t]/g, '').split(/\r?\n/), out = [], cur = null;
+    function un(v) { return v.replace(/\\n/gi, ' ').replace(/\\([,;\\])/g, '$1').trim(); }
+    function dt(v) {
+      var p = v.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?/);
+      if (!p) return null;
+      if (p[4] === undefined) return { d: new Date(+p[1], +p[2] - 1, +p[3]), timed: false };
+      return { d: p[7] ? new Date(Date.UTC(+p[1], +p[2] - 1, +p[3], +p[4], +p[5])) : new Date(+p[1], +p[2] - 1, +p[3], +p[4], +p[5]), timed: true };
+    }
+    lines.forEach(function (line) {
+      if (line === 'BEGIN:VEVENT') { cur = {}; return; }
+      if (line === 'END:VEVENT') {
+        if (cur && cur.DTSTART) {
+          var s = dt(cur.DTSTART), e = cur.DTEND ? dt(cur.DTEND) : null;
+          if (s) {
+            var o = { _line: out.length + 1, date: toStr(s.d), title: un(cur.SUMMARY || ''), club: un(cur.LOCATION || ''), notes: un(cur.DESCRIPTION || '') };
+            if (s.timed) {
+              o.time = pad(s.d.getHours()) + ':' + pad(s.d.getMinutes());
+              if (e && e.timed) o.duration = String(Math.round((e.d - s.d) / 60000));
+            }
+            out.push(o);
+          }
+        }
+        cur = null; return;
+      }
+      if (!cur) return;
+      var idx = line.indexOf(':');
+      if (idx < 0) return;
+      cur[line.slice(0, idx).split(';')[0].toUpperCase()] = line.slice(idx + 1);
+    });
+    return out;
+  }
+  function loadXLSX() {
+    return new Promise(function (res, rej) {
+      if (window.XLSX) return res(window.XLSX);
+      var s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload = function () { res(window.XLSX); };
+      s.onerror = function () { rej(new Error('xlsx')); };
+      document.head.appendChild(s);
+    });
+  }
+  function tableFromXLSX(XLSX, buf) {
+    var wb = XLSX.read(buf, { type: 'array', cellNF: true });
+    var ws = wb.Sheets[wb.SheetNames[0]];
+    if (!ws || !ws['!ref']) return [];
+    var ref = XLSX.utils.decode_range(ws['!ref']), table = [];
+    function txt(cell) {
+      if (!cell) return '';
+      try {
+        if (cell.t === 'n' && cell.z && XLSX.SSF.is_date(cell.z)) {
+          var p = XLSX.SSF.parse_date_code(cell.v);
+          if (p) {
+            var hm = pad(p.H) + ':' + pad(p.M);
+            if (cell.v < 1) return hm;
+            var d = p.y + '-' + pad(p.m) + '-' + pad(p.d);
+            return (p.H || p.M) ? d + ' ' + hm : d;
+          }
+        }
+      } catch (e) {}
+      return cell.w !== undefined ? String(cell.w) : String(cell.v == null ? '' : cell.v);
+    }
+    var skip = {}, fill = {};
+    (ws['!merges'] || []).forEach(function (mg) {
+      for (var rr = mg.s.r; rr <= mg.e.r; rr++) {
+        for (var cc = mg.s.c; cc <= mg.e.c; cc++) {
+          if (rr === mg.s.r && cc === mg.s.c) continue;
+          if (cc === mg.s.c) fill[rr + ',' + cc] = { r: mg.s.r, c: mg.s.c }; else skip[rr + ',' + cc] = 1;
+        }
+      }
+    });
+    for (var r = ref.s.r; r <= ref.e.r; r++) {
+      var row = [];
+      for (var c = ref.s.c; c <= ref.e.c; c++) {
+        var key = r + ',' + c;
+        if (skip[key]) continue;
+        var src = fill[key] || { r: r, c: c };
+        row.push(txt(ws[XLSX.utils.encode_cell({ r: src.r, c: src.c })]));
+      }
+      table.push(row);
+    }
+    return table;
+  }
+  function decode(buf) {
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+    catch (e) { return new TextDecoder('windows-1252').decode(buf); }
+  }
+
+  var MONTHMAP = { jan: 1, feb: 2, mar: 3, mrt: 3, apr: 4, mei: 5, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, okt: 10, oct: 10, nov: 11, dec: 12 };
+  function validDate(y, m, d) {
+    var dt = new Date(y, m - 1, d);
+    return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d ? ymd(y, m - 1, d) : null;
+  }
+  function parseDate(s) {
+    s = String(s || '').trim();
+    if (!s) return null;
+    var m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+    if (m) return validDate(+m[1], +m[2], +m[3]);
+    m = s.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4}|\d{2})(?!\d)/);
+    if (m) { var y = +m[3]; if (y < 100) y += 2000; return validDate(y, +m[2], +m[1]); }
+    m = s.toLowerCase().match(/(\d{1,2})\s*(?:e|ste|de)?\s*([a-z]{3,})\.?\s*(\d{4})?/);
+    if (m && MONTHMAP[m[2].slice(0, 3)]) return validDate(m[3] ? +m[3] : new Date().getFullYear(), MONTHMAP[m[2].slice(0, 3)], +m[1]);
+    return null;
+  }
+  function parseTime(s) {
+    s = String(s || '').trim().toLowerCase();
+    if (!s) return null;
+    var m = s.match(/^(\d{1,2})(?:[:.hu](\d{2}))?(?::\d{2})?\s*(am|pm)?$/);
+    if (!m) return null;
+    var h = +m[1], mi = m[2] ? +m[2] : 0;
+    if (m[3] === 'pm' && h < 12) h += 12;
+    if (m[3] === 'am' && h === 12) h = 0;
+    if (h > 23 || mi > 59) return null;
+    return pad(h) + ':' + pad(mi);
+  }
+  function parseDuration(s) {
+    s = String(s || '').trim().toLowerCase().replace(',', '.');
+    if (!s) return 90;
+    var m = s.match(/^(\d+)\s*u\s*(\d+)?$/);
+    if (m) return Math.min(480, Math.max(15, +m[1] * 60 + (m[2] ? +m[2] : 0)));
+    var n = parseFloat(s);
+    if (isNaN(n) || n <= 0) return 90;
+    if (n < 10) n = Math.round(n * 60);
+    return Math.min(480, Math.max(15, Math.round(n)));
+  }
+  function parseStatus(s, date) {
+    s = String(s || '').trim().toLowerCase();
+    if (/gewonn|verlo|^w$|^l$|^win|^won|^los|winst|verlies/.test(s)) return 'gespeeld';
+    if (/annul|afgelast|cancel|geschrapt/.test(s)) return 'geannuleerd';
+    if (/gespeeld|played|gedaan/.test(s)) return 'gespeeld';
+    if (/gepland|planned|todo|open|bevestigd/.test(s)) return 'gepland';
+    return date < today() ? 'gespeeld' : 'gepland';
+  }
+  function toMatch(r) {
+    var date = parseDate(r.date);
+    if (!date) return { error: r.date ? 'Datum niet herkend: ' + r.date : 'Datum ontbreekt' };
+    var time = null;
+    if (r.time) {
+      time = parseTime(r.time);
+      if (!time) return { error: 'Tijd niet herkend: ' + r.time };
+    } else if (r.date) {
+      var tm = r.date.match(/[T\s](\d{1,2})[:uh](\d{2})/i);
+      if (tm) time = parseTime(tm[1] + ':' + tm[2]);
+    }
+    var type = r.type || '';
+    TYPES.forEach(function (t) { if (type && t.toLowerCase().slice(0, 4) === type.toLowerCase().slice(0, 4)) type = t; });
+    return {
+      match: {
+        date: date, time: time || '', duration: parseDuration(r.duration), title: r.title || '', team: r.team || '', players: r.players || '', club: r.club || '', court: r.court || '',
+        type: type, partner: r.partner || '', opponents: r.opponents || '', status: parseStatus(r.status, date), notes: r.notes || ''
+      }
+    };
+  }
+  function keyOf(m) { return m.date + '|' + (m.time || '') + '|' + (m.team || '').toLowerCase() + '|' + (m.club || '').toLowerCase(); }
+
+  function handleFile(file) {
+    if (!file) return;
+    var ext = (file.name.split('.').pop() || '').toLowerCase();
+    var p;
+    if (ext === 'xlsx' || ext === 'xls') {
+      p = Promise.all([loadXLSX(), file.arrayBuffer()]).then(function (a) { return rowsFromTable(tableFromXLSX(a[0], a[1])); });
+    } else {
+      p = file.arrayBuffer().then(function (buf) {
+        var text = decode(buf);
+        if (ext === 'json') return rowsFromJSON(text);
+        if (ext === 'ics') return rowsFromICS(text);
+        return rowsFromTable(parseCSV(text));
+      });
+    }
+    p.then(function (rows) { showImport(file.name, rows); }).catch(function (e) {
+      toast(e && e.message === 'xlsx' ? 'Excel-bestand lezen lukt hier niet. Sla het op als CSV en probeer opnieuw.' : 'Dit bestand kon niet gelezen worden. Controleer het formaat.');
+    });
+  }
+  function showImport(name, rows) {
+    state.imp = { name: name, rows: rows, items: [] };
+    $('#impTime').value = ''; $('#impClub').value = '';
+    buildImport();
+    $('#importDlg').showModal();
+  }
+  function buildImport() {
+    var imp = state.imp;
+    if (!imp) return;
+    var defTime = $('#impTime').value, defClub = $('#impClub').value.trim();
+    var have = {};
+    state.matches.forEach(function (m) { have[keyOf(m)] = 1; });
+    var items = imp.rows.map(function (r0) {
+      var r = Object.assign({}, r0);
+      if (defTime && !r.time && !/[T\s]\d{1,2}[:uh]\d{2}/i.test(r.date || '')) r.time = defTime;
+      if (defClub && !r.club) r.club = defClub;
+      var res = toMatch(r);
+      var it = { line: r._line, match: res.match, error: res.error, dup: false };
+      if (it.match) { var k = keyOf(it.match); if (have[k]) it.dup = true; else have[k] = 1; }
+      return it;
+    });
+    imp.items = items;
+    var nNew = items.filter(function (i) { return i.match && !i.dup; }).length;
+    var nDup = items.filter(function (i) { return i.dup; }).length;
+    var nBad = items.filter(function (i) { return i.error; }).length;
+    var h;
+    if (!items.length) {
+      h = '<p class="err">In dit bestand staan geen rijen.</p>' + importHelp();
+    } else {
+      h = '<p class="hint">Bestand: <b>' + esc(imp.name) + '</b>. Elke rij komt op de datum uit de kolom <code>datum</code>.</p>' +
+        '<div class="sum"><span style="color:var(--win)">' + nNew + ' nieuw</span><span class="muted">' + nDup + ' bestaat al</span><span style="color:var(--loss)">' + nBad + ' ongeldig</span></div>' +
+        (nDup ? '<p class="hint">Rijen met dezelfde datum, tijd, team en club gelden als dubbel. Geef ze een verschillend team of uur.</p>' : '') +
+        '<div class="tbl"><table><thead><tr><th>Rij</th><th>Datum</th><th>Tijd</th><th>Team</th><th>Club</th><th>Omschrijving</th><th>Spelers</th><th>Status</th><th>Controle</th></tr></thead><tbody>' +
+        items.slice(0, 300).map(function (i) {
+          if (i.error) return '<tr><td>' + i.line + '</td><td colspan="7"></td><td class="bad">' + esc(i.error) + '</td></tr>';
+          var m = i.match;
+          return '<tr><td>' + i.line + '</td><td>' + esc(fmtShort(m.date)) + '</td><td>' + esc(m.time || '—') + '</td><td>' + esc(m.team) + '</td><td>' + esc(m.club) + '</td><td>' + esc(m.title || m.type) + '</td><td class="names" title="' + esc(m.players) + '">' + esc(m.players) + '</td><td>' + esc(STATUS[m.status]) + '</td>' +
+            (i.dup ? '<td class="dup">Bestaat al, wordt overgeslagen</td>' : '<td class="ok">Nieuw</td>') + '</tr>';
+        }).join('') + '</tbody></table></div>' +
+        (items.length > 300 ? '<p class="hint">Eerste 300 rijen getoond.</p>' : '') + importHelp();
+    }
+    $('#importBody').innerHTML = h;
+    var go = $('#importGo');
+    go.disabled = nNew === 0; go.textContent = nNew ? 'Importeer ' + nNew + (nNew === 1 ? ' match' : ' matchen') : 'Niets te importeren';
+  }
+  function importHelp() {
+    return '<p class="hint">Ondersteund: CSV, Excel (.xlsx), JSON en agenda-bestanden (.ics). Kolommen: <code>datum</code> <code>tijd</code> <code>duur</code> <code>club</code> <code>baan</code> <code>team</code> <code>type</code> <code>spelers</code> <code>partner</code> <code>tegenstanders</code> <code>status</code> <code>notities</code>. Datum als 14/11/2026 of 2026-11-14.</p>';
+  }
+  function doImport() {
+    var list = state.imp ? state.imp.items.filter(function (i) { return i.match && !i.dup; }) : [];
+    if (!list.length) return;
+    var go = $('#importGo'); go.disabled = true; go.textContent = 'Importeren…';
+    var firstDate = list.map(function (i) { return i.match.date; }).sort()[0];
+    var payload = list.map(function (i) { return { id: newId(), data: clean(i.match) }; });
+    saveMany(payload).then(function () {
+      $('#importDlg').close(); goTo(firstDate); state.refocus = firstDate; render();
+      toast(list.length + (list.length === 1 ? ' match toegevoegd' : ' matchen toegevoegd'));
+      state.imp = null;
+    }).catch(function (e) { writeError(e); go.disabled = false; go.textContent = 'Opnieuw proberen'; });
+  }
+
+  /* ---------- events ---------- */
+  document.addEventListener('click', function (e) {
+    var close = e.target.closest('[data-close]');
+    if (close) { var dlg = close.closest('dialog'); if (dlg) dlg.close(); return; }
+    if (e.target.tagName === 'DIALOG') { e.target.close(); return; }
+    var el = e.target.closest('[data-act]');
+    if (!el) return;
+    var act = el.dataset.act, id = el.dataset.id, date = el.dataset.date;
+    if (act !== 'del') state.confirmDel = act === 'del-yes' ? state.confirmDel : null;
+    switch (act) {
+      case 'prev': state.ym.m--; if (state.ym.m < 0) { state.ym.m = 11; state.ym.y--; } render(); break;
+      case 'next': state.ym.m++; if (state.ym.m > 11) { state.ym.m = 0; state.ym.y++; } render(); break;
+      case 'today': goTo(today()); render(); break;
+      case 'clear-player': state.player = ''; $('#playerFilter').value = ''; try { localStorage.setItem(PLAYER_KEY, ''); } catch (x) {} render(); $('#playerFilter').focus(); break;
+      case 'view-month': state.view = 'month'; render(); break;
+      case 'view-list': state.view = 'list'; render(); break;
+      case 'select': goTo(date); state.refocus = date; render(); break;
+      case 'add': openForm(null, date); break;
+      case 'edit': openForm(id); break;
+      case 'del': state.confirmDel = id; renderPanel(); break;
+      case 'del-no': renderPanel(); break;
+      case 'del-yes':
+        removeMatch(id).then(function () { state.confirmDel = null; render(); toast('Match verwijderd'); }).catch(writeError);
+        break;
+      case 'upload': $('#fileInput').click(); break;
+      case 'import-go': doImport(); break;
+      case 'install': installApp(); break;
+    }
+  });
+  $('#fileInput').addEventListener('change', function (e) {
+    var f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    handleFile(f);
+  });
+  $('#matchForm').addEventListener('submit', submitForm);
+  $('#impTime').addEventListener('input', buildImport);
+  $('#impClub').addEventListener('input', buildImport);
+  $('#playerFilter').addEventListener('input', function (e) {
+    state.player = e.target.value.trim();
+    try { localStorage.setItem(PLAYER_KEY, state.player); } catch (x) {}
+    render();
+  });
+  $('#codeForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = $('#codeInput').value.trim();
+    if (!v) return;
+    var a = codeAsk; codeAsk = null;
+    $('#codeDlg').close();
+    if (a) a.resolve(v);
+  });
+  $('#codeDlg').addEventListener('close', function () {
+    if (codeAsk) { var a = codeAsk; codeAsk = null; a.reject({ code: 'cancelled' }); }
+  });
+
+  var dragDepth = 0;
+  function hasFiles(e) { return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0; }
+  window.addEventListener('dragenter', function (e) { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; $('#drop').classList.add('on'); });
+  window.addEventListener('dragover', function (e) { if (hasFiles(e)) e.preventDefault(); });
+  window.addEventListener('dragleave', function (e) { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) $('#drop').classList.remove('on'); });
+  window.addEventListener('drop', function (e) {
+    if (!hasFiles(e)) return;
+    e.preventDefault(); dragDepth = 0; $('#drop').classList.remove('on');
+    handleFile(e.dataTransfer.files[0]);
+  });
+
+  fillStatusOptions();
+  render();
+  init();
+})();
+</script>
+</body>
+</html>

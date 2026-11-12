@@ -1,0 +1,20 @@
+# Render Blueprint voor de Padelagenda.
+# Let op: een schijf (disk) bestaat alleen bij een betaald Render-plan. Op het gratis plan gaan de matchen
+# verloren bij elke herstart of nadat de dienst in slaap valt. Zie README.md.
+services:
+  - type: web
+    name: padelagenda
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: EDIT_CODE
+        sync: false          # vul de bewerkcode in het Render-dashboard in
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: padel-data
+      mountPath: /var/data
+      sizeGB: 1
