@@ -1,0 +1,16 @@
+{
+  "name": "padelagenda-cloudflare",
+  "main": "src/worker.js",
+  "compatibility_date": "2025-01-01",
+  "assets": {
+    "directory": "./public",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "padelagenda",
+      "database_id": "VUL-HIER-HET-DATABASE-ID-IN"
+    }
+  ]
+}
